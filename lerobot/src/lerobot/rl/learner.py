@@ -68,6 +68,7 @@ from lerobot.policies.factory import make_policy
 from lerobot.policies.sac.modeling_sac import SACPolicy
 from lerobot.rl.buffer import ReplayBuffer, concatenate_batch_transitions
 from lerobot.rl.process import ProcessSignalHandler
+from lerobot.rl.training_logger import TrainingCSVLogger
 from lerobot.rl.wandb_utils import WandBLogger
 from lerobot.robots import so100_follower  # noqa: F401
 from lerobot.teleoperators import gamepad, so101_leader, touch  # noqa: F401
@@ -159,6 +160,10 @@ def train(cfg: TrainRLServerPipelineConfig, job_name: str | None = None):
         wandb_logger = None
         logging.info(colored("Logs will be saved locally.", "yellow", attrs=["bold"]))
 
+    # Setup CSV training logger (always enabled)
+    csv_logger = TrainingCSVLogger(output_dir=cfg.output_dir, job_name=job_name)
+    logging.info(colored("CSV training logs enabled.", "green", attrs=["bold"]))
+
     # Handle resume logic
     cfg = handle_resume_logic(cfg)
 
@@ -173,6 +178,7 @@ def train(cfg: TrainRLServerPipelineConfig, job_name: str | None = None):
     start_learner_threads(
         cfg=cfg,
         wandb_logger=wandb_logger,
+        csv_logger=csv_logger,
         shutdown_event=shutdown_event,
     )
 
@@ -180,6 +186,7 @@ def train(cfg: TrainRLServerPipelineConfig, job_name: str | None = None):
 def start_learner_threads(
     cfg: TrainRLServerPipelineConfig,
     wandb_logger: WandBLogger | None,
+    csv_logger: TrainingCSVLogger | None,
     shutdown_event: any,  # Event,
 ) -> None:
     """
@@ -188,6 +195,7 @@ def start_learner_threads(
     Args:
         cfg (TrainRLServerPipelineConfig): Training configuration
         wandb_logger (WandBLogger | None): Logger for metrics
+        csv_logger (TrainingCSVLogger | None): CSV logger for local metrics
         shutdown_event: Event to signal shutdown
     """
     # Create multiprocessing queues
@@ -222,12 +230,17 @@ def start_learner_threads(
     add_actor_information_and_train(
         cfg=cfg,
         wandb_logger=wandb_logger,
+        csv_logger=csv_logger,
         shutdown_event=shutdown_event,
         transition_queue=transition_queue,
         interaction_message_queue=interaction_message_queue,
         parameters_queue=parameters_queue,
     )
     logging.info("[LEARNER] Training process stopped")
+
+    # Save training summary on exit
+    if csv_logger:
+        csv_logger.save_summary()
 
     logging.info("[LEARNER] Closing queues")
     transition_queue.close()
@@ -251,6 +264,7 @@ def start_learner_threads(
 def add_actor_information_and_train(
     cfg: TrainRLServerPipelineConfig,
     wandb_logger: WandBLogger | None,
+    csv_logger: TrainingCSVLogger | None,
     shutdown_event: any,  # Event,
     transition_queue: Queue,
     interaction_message_queue: Queue,
@@ -373,6 +387,7 @@ def add_actor_information_and_train(
             interaction_message_queue=interaction_message_queue,
             interaction_step_shift=interaction_step_shift,
             wandb_logger=wandb_logger,
+            csv_logger=csv_logger,
             shutdown_event=shutdown_event,
         )
 
@@ -567,6 +582,10 @@ def add_actor_information_and_train(
             if wandb_logger:
                 wandb_logger.log_dict(d=training_infos, mode="train", custom_step_key="Optimization step")
 
+            # Log to CSV (always)
+            if csv_logger:
+                csv_logger.log_training(training_infos, optimization_step)
+
         # Calculate and log optimization frequency
         time_for_one_optimization_step = time.time() - time_for_one_optimization_step
         frequency_for_one_optimization_step = 1 / (time_for_one_optimization_step + 1e-9)
@@ -602,6 +621,9 @@ def add_actor_information_and_train(
                 dataset_repo_id=dataset_repo_id,
                 fps=fps,
             )
+            # Also save CSV summary at each checkpoint
+            if csv_logger:
+                csv_logger.save_summary()
 
 
 def start_learner(
@@ -1112,7 +1134,10 @@ def push_actor_policy_to_queue(parameters_queue: Queue, policy: nn.Module):
 
 
 def process_interaction_message(
-    message, interaction_step_shift: int, wandb_logger: WandBLogger | None = None
+    message,
+    interaction_step_shift: int,
+    wandb_logger: WandBLogger | None = None,
+    csv_logger: TrainingCSVLogger | None = None,
 ):
     """Process a single interaction message with consistent handling."""
     message = bytes_to_python_object(message)
@@ -1122,6 +1147,10 @@ def process_interaction_message(
     # Log if logger available
     if wandb_logger:
         wandb_logger.log_dict(d=message, mode="train", custom_step_key="Interaction step")
+
+    # Log episode to CSV
+    if csv_logger:
+        csv_logger.log_episode(message)
 
     return message
 
@@ -1173,6 +1202,7 @@ def process_interaction_messages(
     interaction_message_queue: Queue,
     interaction_step_shift: int,
     wandb_logger: WandBLogger | None,
+    csv_logger: TrainingCSVLogger | None,
     shutdown_event: any,
 ) -> dict | None:
     """Process all available interaction messages from the queue.
@@ -1193,6 +1223,7 @@ def process_interaction_messages(
             message=message,
             interaction_step_shift=interaction_step_shift,
             wandb_logger=wandb_logger,
+            csv_logger=csv_logger,
         )
 
     return last_message

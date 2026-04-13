@@ -331,8 +331,10 @@ def make_robot_env(cfg: HILSerlRobotEnvConfig) -> tuple[gym.Env, Any]:
                 ActionSafetyWrapper,
                 EEOrientationActionWrapper,
             )
+            from lerobot.rl.staged_reward_wrapper import StagedRewardWrapper
 
-            base_env = PandaPickCubeGymEnv(image_obs=True, reward_type="sparse")
+            base_env = PandaPickCubeGymEnv(image_obs=True, reward_type="dense")
+            base_env = StagedRewardWrapper(base_env)
             if use_gripper:
                 base_env = GripperPenaltyWrapper(base_env, penalty=gripper_penalty)
             base_env = EEOrientationActionWrapper(

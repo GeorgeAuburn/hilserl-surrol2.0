@@ -238,13 +238,23 @@ int initTouch_left()
 
 void startScheduler()
 {
-     HDErrorInfo error;
+    HDErrorInfo error;
+
+    /* Disable force output BEFORE starting scheduler to prevent jerk/kick */
+    hdMakeCurrentDevice(hHD_right);
+    hdDisable(HD_FORCE_OUTPUT);
+    if (hHD_left) {
+        hdMakeCurrentDevice(hHD_left);
+        hdDisable(HD_FORCE_OUTPUT);
+    }
+
     hdStartScheduler();
     if (HD_DEVICE_ERROR(error = hdGetError()))
     {
         hduPrintError(stderr, &error, "Failed to start the scheduler");
-        return -1;           
+        return;
     }
+    printf("Scheduler started (force feedback DISABLED)\n");
 }
 
 void stopScheduler()
@@ -254,14 +264,14 @@ void stopScheduler()
 
 void closeTouch_left()
 {
-    // hdStopScheduler();
+    hdStopScheduler();
     hdDisableDevice(hHD_left);
     return;
 }
 
 void closeTouch_right()
 {
-    // hdStopScheduler();
+    hdStopScheduler();
     hdDisableDevice(hHD_right);
     return;
 }

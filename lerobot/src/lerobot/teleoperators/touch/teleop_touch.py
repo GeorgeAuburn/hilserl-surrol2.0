@@ -179,9 +179,19 @@ class TouchTeleop(Teleoperator):
     # ------------------------------------------------------------------
 
     def _read_device(self) -> tuple[np.ndarray, np.ndarray, int]:
-        """Return (position_mm, gimbal_angles_rad, button_bitmask)."""
+        """Return (position_mm, gimbal_angles_rad, button_bitmask).
+
+        If the device is disconnected or an error occurs, returns zeros
+        and logs a warning instead of crashing.
+        """
         pose = np.zeros(7, dtype=np.float32)
-        self._get_pose_fn(pose)
+        try:
+            self._get_pose_fn(pose)
+        except Exception as e:
+            if self._connected:
+                log.warning(f"Touch device read failed (disconnected?): {e}")
+                self._connected = False
+            return np.zeros(3, dtype=np.float64), np.zeros(3, dtype=np.float64), 0
         pos = pose[:3].astype(np.float64)
         orn = pose[3:6].astype(np.float64)
         button = int(pose[6])
@@ -236,6 +246,16 @@ class TouchTeleop(Teleoperator):
     # ------------------------------------------------------------------
 
     def get_action(self) -> dict[str, Any]:
+        if not self._connected:
+            # Device disconnected: return zero action (policy takes over)
+            action_dict = {
+                "delta_x": 0.0, "delta_y": 0.0, "delta_z": 0.0,
+                "delta_rx": 0.0, "delta_ry": 0.0, "delta_rz": 0.0,
+            }
+            if self.config.use_gripper:
+                action_dict["gripper"] = int(GripperAction.STAY)
+            return action_dict
+
         pos, orn, button = self._read_device()
         button1_pressed = bool(button & 1)
         button2_pressed = bool(button & 2)
@@ -278,13 +298,15 @@ class TouchTeleop(Teleoperator):
         pass
 
     def disconnect(self) -> None:
-        if not self._connected:
-            return
         mod = self._touch_module
         if mod is not None:
-            mod.stopScheduler()
-            if self.config.device_name == "right":
-                mod.closeTouch_right()
-            else:
-                mod.closeTouch_left()
+            try:
+                mod.stopScheduler()
+                if self.config.device_name == "right":
+                    mod.closeTouch_right()
+                else:
+                    mod.closeTouch_left()
+            except Exception as e:
+                log.warning(f"Touch disconnect error (device already removed?): {e}")
         self._connected = False
+        log.info("Touch device disconnected")

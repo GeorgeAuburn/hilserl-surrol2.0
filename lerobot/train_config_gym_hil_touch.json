@@ -30,7 +30,7 @@
         "use_gripper": true,
         "device_name": "right",
         "position_scale": 0.2,
-        "haptic_module_path": "__HAPTIC_MODULE_PATH__",
+        "haptic_module_path": "/home/zjj/projects/hilsurrol/hilserl-surrol-improved/SurRoL_v2/haptic_src",
         "clutch_mode": false
       },
       "processor": {

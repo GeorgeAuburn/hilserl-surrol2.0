@@ -353,7 +353,13 @@ def act_with_policy(
         transition = new_transition
 
         if done or truncated:
-            logging.info(f"[ACTOR] Global step {interaction_step}: Episode reward: {sum_reward_episode}")
+            intervention_rate_live = (
+                episode_intervention_steps / episode_total_steps if episode_total_steps > 0 else 0.0
+            )
+            intervention_tag = f" | intervention={'YES' if episode_intervention else 'NO'} ({intervention_rate_live:.0%})"
+            logging.info(
+                f"[ACTOR] Global step {interaction_step}: Episode reward: {sum_reward_episode:.4f}{intervention_tag}"
+            )
 
             update_policy_parameters(policy=policy, parameters_queue=parameters_queue, device=device)
 

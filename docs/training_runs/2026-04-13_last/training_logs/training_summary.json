@@ -1,0 +1,17 @@
+{
+  "run_label": "2026-04-13 最后一次训练（franka_sim_sac_touch）",
+  "learner_run_dir": "lerobot/outputs/train/2026-04-13/20-24-11_franka_sim_sac_touch",
+  "actor_run_dir": "lerobot/outputs/train/2026-04-13/20-24-28_franka_sim_sac_touch",
+  "learner_log_started": "2026-04-13T20:24:11",
+  "actor_log_started": "2026-04-13T20:24:28",
+  "last_actor_episode_time": "2026-04-13 23:17:01",
+  "last_interaction_step": 90038,
+  "total_episodes_logged": 1151,
+  "episodic_reward": {
+    "min": 0.035899,
+    "max": 1.335082,
+    "mean": 0.562805
+  },
+  "notes": "Learner 侧 training_metrics.csv 在本次运行中未记录到优化步数据（仅初始化表头）；episode_metrics.csv 由 Actor 日志解析生成，含每回合奖励与策略频率。原始日志已复制到本目录 logs/。",
+  "upstream_collaborator_repo": "https://github.com/LIJianxuanLeo/hilserl-surrol-improved"
+}

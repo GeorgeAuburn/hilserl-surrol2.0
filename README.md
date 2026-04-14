@@ -96,6 +96,10 @@ wandb login
 # 修改 train_config_gym_hil_touch.json 中 "wandb": { "enable": true }
 ```
 
+### 共享训练归档（便于协作者查看）
+
+本仓库在 [docs/training_runs/2026-04-13_last/](docs/training_runs/2026-04-13_last/) 归档了 **2026-04-13** 末次长跑的原始 Learner/Actor 日志、由 Actor 日志解析的 `episode_metrics.csv`、`training_summary.json` 与 `training_curves.png`（本机 `lerobot/outputs/train/...` 下的路径见 summary 内说明）。
+
 ## 系统要求
 
 - Ubuntu 22.04
